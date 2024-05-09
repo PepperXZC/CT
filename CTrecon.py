@@ -26,7 +26,7 @@ for file in datafs:
         parr = np.array(L).astype(np.uint16)
         data[num-1] = parr
 
-angles = np.linspace(0, np.pi, num_angles)
+angles = np.linspace(0, 2*np.pi, num_angles)
 # print(data.shape)
 
 reffs = os.listdir(refrt)
@@ -61,20 +61,6 @@ for key in infokeys:
     bb = root.getElementsByTagName(key)
     infodic[key] = float(bb[0].firstChild.data)
 
-# fig=plt.figure()
-op = np.log(ref[:, 400, :] / data[:,400,:])
-# op[np.isnan(op)] = 0
-
-op2 = np.log(ref[:, 100, :] / data[:,100,:])
-# op2[np.isnan(op2)] = 0
-
-plt.subplot(121)
-plt.imshow(op, cmap='gray')
-plt.colorbar()
-plt.subplot(122)
-plt.imshow(op2, cmap='gray')
-plt.colorbar()
-plt.savefig('ct.png')
 # num_angles, num_detectors_orig = sinogram.shape
 
 proj_type = 'cuda3d'
@@ -90,8 +76,8 @@ detector_origin_mm = calibdic['AxisToDetector'] * 10 # distance b/n COR and dete
 
 # magnification = (source_origin + detector_origin) / source_origin
 # detector_pixel_size = magnification
-detector_pixel_size_x = calibdic['HorizLightSize'] / 480
-detector_pixel_size_y = calibdic['VertLightSize'] / 640
+detector_pixel_size_x = calibdic['HorizLightSize'] * 10 / 480
+detector_pixel_size_y = calibdic['VertLightSize'] * 10 / 640
 
 # vecs = cal_vecs(src_x_det_crd, src_y_det_crd, src_z_det_crd, rot_x_det_crd, rot_y_det_crd, rot_z_det_crd, angles, det_spacing_x, det_spacing_y)
 proj_geom = astra.create_proj_geom('cone',
@@ -103,7 +89,12 @@ proj_geom = astra.create_proj_geom('cone',
                                     source_origin_mm,
                                     detector_origin_mm)
 
-vol_geom = astra.create_vol_geom(640, 640, 480)
+# FOV_x = calibdic['HorizLightSize'] * source_origin_mm / (source_origin_mm+detector_origin_mm)
+FOV_y = calibdic['VertLightSize']* 10 * source_origin_mm / (source_origin_mm+detector_origin_mm)
+vol_geom = astra.create_vol_geom(640, 640, 640, 
+                                 (-640/2)*FOV_y/640, (640/2)*FOV_y/640,
+                                 (-640/2)*FOV_y/640, (640/2)*FOV_y/640,
+                                 (-640/2)*FOV_y/640, (640/2)*FOV_y/640,)
 # Create the actual projector 
 proj_id = astra.create_projector(proj_type, 
                                 proj_geom, 
@@ -113,10 +104,21 @@ proj_id = astra.create_projector(proj_type,
 # detector_origin_cm = detector_origin_cm
 
 ops = np.log(ref / data)
-ops[np.isnan(ops)] = -10
+ops[np.isnan(ops)] = 0
 ops = ops.astype(np.float32)
 ops = np.transpose(ops, (1,0,2))
 
+plt.subplot(131)1
+plt.imshow(ops[:, :, 200], cmap='gray')
+# plt.colorbar()
+plt.subplot(132)
+plt.imshow(ops[:,400,:], cmap='gray')
+# plt.colorbar()
+plt.subplot(133)
+plt.imshow(ops[400,:,:], cmap='gray')
+# plt.colorbar()
+plt.savefig('ct.png')
+print(ops.shape)
 vol_sz = [x_vol_sz, y_vol_sz, z_vol_sz] # CStalk
 vol_rec = np.zeros(vol_sz, dtype=np.float32)
 
@@ -138,29 +140,11 @@ astra.data3d.delete(proj_id)
 plt.figure()
 plt.subplot(121)
 plt.gray()
-plt.imshow(V[200])
+plt.imshow(V[500,:,:])
 plt.colorbar(shrink=0.5)
 plt.subplot(122)
 plt.gray()
-plt.imshow(ops[200])
+plt.imshow(V[:,300, :])
 plt.colorbar(shrink=0.5)
 plt.savefig('ctrecon.png')
 plt.show()
-
-#        print('proj_id create: ', proj_id)
-
-# proj_id = create_projector_id(sinogram,
-#                             beam_geometry,
-#                             projector_type,
-#                             recon_dimension,
-#                             source_origin_cm,
-#                             detector_origin_cm)
-
-# proj_geom = astra.create_proj_geom('fanflat',
-#                                     detector_pixel_size,
-#                                     num_detector_pixels,
-#                                     angles,
-#                                     source_origin,
-#                                     detector_origin)
-        # print(parr.shape, parr.dtype)
-# astra.create_proj_geom()
